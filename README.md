@@ -66,7 +66,7 @@ kubectl get secret hello-message -n dev-hello \
   -o jsonpath='{.data.message}' | base64 -d
 
 # Update in Vault — ESO syncs within 30s
-vault kv put secret/kubernetes/hello/config message="Live update!"
+vault kv put secret/kubernetes/hello/config message='Live update!'
 kubectl get secret hello-message -n dev-hello \
   -o jsonpath='{.data.message}' | base64 -d
 ```
