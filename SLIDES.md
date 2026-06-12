@@ -15,29 +15,28 @@ SELF 2026
 ---
 # Secure Secrets in Kubernetes — Talk Outline
 
-## 1. The Problem: Kubernetes Secrets Are Insecure by Default
+## The Problem: Kubernetes Secrets Are Insecure by Default
 
-- Secrets are just ConfigMaps
+- Secrets are encoded, not encrypted
 - Secrets are not encrypted at rest
-- Secrets are not encrypted in transit
 - Secrets can be read by any workload in the namespace
 - "Secret" is a misleading name
 
 <!--
-- Secrets are base64-encoded ConfigMaps — not encrypted, just encoded
+- Secrets are base64-encoded — not encrypted, like a ConfigMap with an extra step
 - No encryption at rest by default (etcd stores them in plaintext)
-- No encryption in transit by default between etcd and the API server
 - No access restriction by default — any workload in the namespace can read them
 - RBAC *can* restrict access, but must be explicitly configured; the default is open
 -->
 
 ---
 
-## 2. The Solution: Vault + ESO + cert-manager
+## The Solution: Vault + ESO + cert-manager
 
-- Vault by Hashicorp is the OSS standard for secure secret management
+- Vault by HashiCorp is the leading tool for secure secret management
+  - Use OpenBao for an OSS fork
 - ESO allows Vault secrets to be used like K8s Secrets
-- cert-manager does certificate issuing and renewing through Vault and other CAs.
+- cert-manager handles issuing and renewing certificates through Vault and other CAs
 
 <!--
 - HashiCorp Vault: encrypted secret storage, access policies, audit log, dynamic secrets
@@ -47,36 +46,91 @@ SELF 2026
 
 ---
 
-## 3. Separation of Concerns: Who Owns What
+### Caveats:
+
+- K8s still has a copy of the secret
+- ExternalSecrets still need RBAC
+- Synced secrets are still plaintext in memory
+- etcd must be secured anyway
+
+---
+
+### Benefits:
+
+- Secrets never touch source control
+- Centralized lifecycle management
+- Strong auditing
+- Dynamic/short-lived credentials
+- Limited blast radius on breach
+
+<!-- So why bother? -->
+---
+
+## Separation of Concerns: Who Owns What?
+
+- What does provisioning?
+- What does deployment?
+- What does configuration management?
+- What does secret lifecycle management?
+
+### Use the best tool for the job
+
+---
+
+## Separation of Concerns: Examples
 
 | Resource | Owned by | Why |
 |---|---|---|
-| Vault install + PKI config | bootstrap only | Stateful; imperative setup; Flux restarting it loses dev-mode data |
-| `ClusterSecretStore vault-backend` | bootstrap only | Tied to Vault's K8s auth config; re-bootstrap required on change |
-| GitHub auth secret | bootstrap only | Credentials — never in git |
-| ESO HelmRelease | bootstrap → **Flux (adopted)** | Bootstrap installs first so Flux can sync secrets; Flux manages upgrades |
-| `GitRepository` + root `Kustomization` | bootstrap → **Flux (adopted)** | Bootstrap applies from git template; Flux owns reconciliation |
-| cert-manager, Traefik, ClusterIssuer | **Flux (pure)** | No bootstrap dependency |
+| Vault install + PKI config | External | Shared resource |
+| `ClusterSecretStore vault-backend` | External | Tied to Vault's K8s auth config, details not known to K8s team |
+| GitHub auth secret | Stored in Vault | Credentials — never in git |
+| GitHub ExternalSecret | FluxCD (pure or adopted) | No actual secret data, part of Config Mgmt|
+| ESO HelmRelease | Externally Created → **Flux (adopted)** | Catch-22; required by Flux install, Flux manages |
+
+---
+
+## Separation of Concerns: Examples Continued
+
+| Resource | Owned by | Why |
+|---|---|---|
+| `GitRepository` + root `Kustomization` | Created before Flux install → **Flux (adopted)** | Using an external secret with this resource is another Catch-22 |
+| cert-manager, Traefik, ClusterIssuer | **Flux (pure)** | No actual secrets, no catch-22 |
 | hello-world app (cert, secret, ingress) | **Flux (pure)** | Full app lifecycle via GitOps |
 
-Key insight: `prune: false` on bootstrap-owned resources — they are intentionally absent from git.
+### External Resources are invisible to Flux unless adopted.
 
-## 4. Automated Certificate Rotation
+<!-- `prune: true` has no effect on external Resources during reconciliation -->
 
-- cert-manager requests 60-day certs from Vault PKI and auto-renews at 30 days remaining
-- Illustrates the pattern: declare desired state, let the operator manage the lifecycle
+---
+
+## Automated Certificate Rotation
+
+- We configure cert-manager to create 60-day certs from Vault PKI and auto-renew at 30 days remaining
 - No manual intervention, no downtime, no forgotten renewals
-- Same pattern applies to any operator managing stateful lifecycle (databases, message queues, etc.)
 
-## 5. Production PKI vs. Demo CA
+<!--
+Vault supports the ACME protocol well enough for cert-manager to request and renew certs. This is not the only way; you can also manually create certs with a 3rd party registrar, but our demo today is self-contained
+-->
 
+---
+
+## Production PKI vs. Demo CA
+
+- We use a self-signed CA for LAN-accessible hosts
+- Use Let's Encrypt or a Commercial CA for public ingress depending on requirements
+- Customize for your needs
+
+<!--
 - This demo uses a self-signed CA generated locally (`make generate-ca`) and imported into Vault
 - In production: Vault PKI is subordinate to your org's internal root CA (Vault never sees the root key)
 - Alternatively: use a public CA (Let's Encrypt via ACME, DigiCert, etc.) — cert-manager supports both
 - The Vault ClusterIssuer works identically either way; only the CA trust chain changes
 - Key question for prod: who holds the root, and what's the rotation policy?
+-->
 
-## 6. Live Demo: Secret Rotation in Real Time
+---
+
+## Live Demo: Secret Rotation in Real Time
 
 ```bash
 # The secret is just base64 in Kubernetes
@@ -86,10 +140,18 @@ kubectl get secret hello-message -n dev-hello -o yaml
 kubectl get secret hello-message -n dev-hello \
   -o jsonpath='{.data.message}' | base64 -d
 
-# Update the source in Vault — ESO syncs within 30 seconds
-vault kv put secret/kubernetes/hello/config message="Live update!"
+# Update the source in Vault — ESO configured to sync every 30 seconds
+vault kv put secret/kubernetes/hello/config message='Live update!'
 kubectl get secret hello-message -n dev-hello \
   -o jsonpath='{.data.message}' | base64 -d
 ```
 
 No pod restart. No deploy. The secret updated in place.
+
+---
+
+# Questions?
+
+_Continuous Deployment + GitOps: my next talk at 2PM_
+
+https://github.com/josephtate/self-2026-vault-talk

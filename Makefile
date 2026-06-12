@@ -2,7 +2,7 @@ CLUSTER_NAME ?= vault-talk
 NAMESPACE_PREFIX ?= dev
 DEMO_HOST = hello.vault-talk.lan
 
-.PHONY: generate-ca trust-ca add-hosts bootstrap-dev teardown-dev status flux-status flux-watch logs minikube-start minikube-stop load-images
+.PHONY: generate-ca trust-ca add-hosts bootstrap-dev teardown-dev status flux-status flux-watch logs minikube-start minikube-stop load-images vault-env vault-shell
 
 ## CA management (run before the demo)
 generate-ca:
@@ -43,7 +43,8 @@ add-hosts:
 	@MINIKUBE_IP=$$(minikube ip -p $(CLUSTER_NAME)) && \
 	sudo sed -i '/$(DEMO_HOST)/d' /etc/hosts && \
 	echo "$$MINIKUBE_IP $(DEMO_HOST)" | sudo tee -a /etc/hosts && \
-	echo "Added: $$MINIKUBE_IP $(DEMO_HOST)"
+	echo "Added: $$MINIKUBE_IP $(DEMO_HOST)" && \
+	echo "  https://$(DEMO_HOST)"
 
 ## Image pre-loading (run after minikube-start, before bootstrap-dev)
 ## docker pull → host cache, then minikube image load → minikube containerd.
@@ -67,6 +68,15 @@ load-images:
 	docker pull ghcr.io/external-secrets/external-secrets:v0.19.2
 	minikube image load ghcr.io/external-secrets/external-secrets:v0.19.2 -p $(CLUSTER_NAME)
 	@echo "Done. Images loaded into minikube profile: $(CLUSTER_NAME)"
+
+## Vault access
+vault-env:
+	@minikube service dev-vault -n dev-vault -p $(CLUSTER_NAME) --url 2>/dev/null | head -1 | xargs -I{} echo 'export VAULT_ADDR={} VAULT_TOKEN=root'
+
+vault-shell:
+	@VAULT_ADDR=$$(minikube service dev-vault -n dev-vault -p $(CLUSTER_NAME) --url 2>/dev/null | head -1) \
+	VAULT_TOKEN=root \
+	bash --rcfile <(echo "export VAULT_ADDR=$$VAULT_ADDR VAULT_TOKEN=root && PS1='[vault] \w \$$ '")
 
 ## Bootstrap and teardown
 bootstrap-dev:
@@ -102,7 +112,7 @@ flux-status:
 	flux get helmreleases -A || true
 
 flux-watch:
-	flux get kustomizations --watch
+	flux get kustomizations --watch --timeout=10m
 
 logs:
 	flux logs --follow --tail=100
