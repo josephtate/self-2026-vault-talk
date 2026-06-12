@@ -231,7 +231,8 @@ configure_vault() {
             key_type="ec" \
             key_bits=384 \
             server_flag=true \
-            client_flag=false
+            client_flag=false \
+            require_cn=false
 
         info "Creating cert-manager policy..."
         vault policy write "${NAMESPACE_PREFIX}-cert-manager" - <<EOF
