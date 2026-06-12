@@ -19,9 +19,9 @@ VAULT_TOKEN="${VAULT_TOKEN:-root}"
 
 GITHUB_USER="${GITHUB_USER:-}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-GITHUB_REPO="${GITHUB_REPO:-jtate-vault-talk}"
+GITHUB_REPO="${GITHUB_REPO:-self-2026-vault-talk}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)}"
-GITHUB_OWNER="${GITHUB_OWNER:-ctrliq}"
+GITHUB_OWNER="${GITHUB_OWNER:-josephtate}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

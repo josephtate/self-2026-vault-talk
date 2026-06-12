@@ -12,24 +12,40 @@ marp: true
 **Joseph Tate**
 SELF 2026
 
-
 ---
 # Secure Secrets in Kubernetes — Talk Outline
 
 ## 1. The Problem: Kubernetes Secrets Are Insecure by Default
 
+- Secrets are just ConfigMaps
+- Secrets are not encrypted at rest
+- Secrets are not encrypted in transit
+- Secrets can be read by any workload in the namespace
+- "Secret" is a misleading name
+
+<!--
 - Secrets are base64-encoded ConfigMaps — not encrypted, just encoded
 - No encryption at rest by default (etcd stores them in plaintext)
 - No encryption in transit by default between etcd and the API server
 - No access restriction by default — any workload in the namespace can read them
 - RBAC *can* restrict access, but must be explicitly configured; the default is open
-- "Secret" is a misleading name
+-->
+
+---
 
 ## 2. The Solution: Vault + ESO + cert-manager
 
+- Vault by Hashicorp is the OSS standard for secure secret management
+- ESO allows Vault secrets to be used like K8s Secrets
+- cert-manager does certificate issuing and renewing through Vault and other CAs.
+
+<!--
 - HashiCorp Vault: encrypted secret storage, access policies, audit log, dynamic secrets
 - External Secrets Operator: syncs Vault secrets into Kubernetes Secrets on a schedule
 - cert-manager: automates TLS certificate issuance and renewal via Vault PKI
+-->
+
+---
 
 ## 3. Separation of Concerns: Who Owns What
 

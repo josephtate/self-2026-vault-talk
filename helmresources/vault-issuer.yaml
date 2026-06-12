@@ -23,6 +23,5 @@ spec:
         role: ${NAMESPACE_PREFIX}-cert-manager
         serviceAccountRef:
           name: ${NAMESPACE_PREFIX}-cert-manager
-          namespace: ${NAMESPACE_PREFIX}-cert-manager
           audiences:
             - https://kubernetes.default.svc.cluster.local

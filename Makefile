@@ -2,7 +2,7 @@ CLUSTER_NAME ?= vault-talk
 NAMESPACE_PREFIX ?= dev
 DEMO_HOST = hello.vault-talk.lan
 
-.PHONY: generate-ca trust-ca add-hosts bootstrap-dev teardown-dev status logs minikube-start minikube-stop load-images
+.PHONY: generate-ca trust-ca add-hosts bootstrap-dev teardown-dev status flux-status flux-watch logs minikube-start minikube-stop load-images
 
 ## CA management (run before the demo)
 generate-ca:
@@ -96,6 +96,13 @@ status:
 	@echo ""
 	@echo "=== HelmReleases ==="
 	flux get helmreleases -A
+
+flux-status:
+	flux get kustomizations -A
+	flux get helmreleases -A || true
+
+flux-watch:
+	flux get kustomizations --watch
 
 logs:
 	flux logs --follow --tail=100
