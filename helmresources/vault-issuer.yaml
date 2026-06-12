@@ -1,0 +1,28 @@
+---
+# ServiceAccount that cert-manager uses to authenticate with Vault via Kubernetes auth.
+# bootstrap.sh creates the matching Vault role bound to this namespace + SA.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${NAMESPACE_PREFIX}-cert-manager
+  namespace: ${NAMESPACE_PREFIX}-cert-manager
+---
+# ClusterIssuer: tells cert-manager to sign certificates via Vault PKI.
+# No caBundleSecretRef needed — Vault runs in HTTP dev mode (no TLS on Vault itself).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: vault-issuer-${NAMESPACE_PREFIX}
+spec:
+  vault:
+    server: ${VAULT_URL}
+    path: pki/sign/${NAMESPACE_PREFIX}-cert-manager
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: ${NAMESPACE_PREFIX}-cert-manager
+        serviceAccountRef:
+          name: ${NAMESPACE_PREFIX}-cert-manager
+          namespace: ${NAMESPACE_PREFIX}-cert-manager
+          audiences:
+            - https://kubernetes.default.svc.cluster.local

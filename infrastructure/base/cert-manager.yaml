@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE_PREFIX}-cert-manager
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.jetstack.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: ${NAMESPACE_PREFIX}-cert-manager
+  targetNamespace: ${NAMESPACE_PREFIX}-cert-manager
+  chart:
+    spec:
+      chart: cert-manager
+      version: "v1.16.2"
+      sourceRef:
+        kind: HelmRepository
+        name: jetstack
+        namespace: flux-system
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    installCRDs: true
+---
+# Allow cert-manager's service account to create token reviews (required for Vault K8s auth)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: ${NAMESPACE_PREFIX}-cert-manager
+    namespace: ${NAMESPACE_PREFIX}-cert-manager
+---
+# Allow cert-manager to create service account tokens for Vault auth
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-vault-token
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-vault-token
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-vault-token
+subjects:
+  - kind: ServiceAccount
+    name: ${NAMESPACE_PREFIX}-cert-manager
+    namespace: ${NAMESPACE_PREFIX}-cert-manager

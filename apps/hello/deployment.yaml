@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-html
+  namespace: ${NAMESPACE_PREFIX}-hello
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>Hello from Kubernetes</title>
+    <style>
+      body { font-family: monospace; max-width: 700px; margin: 60px auto; padding: 20px; }
+      h1 { color: #2d6a4f; }
+      .box { background: #f0f4f8; border-left: 4px solid #2d6a4f; padding: 16px; margin: 16px 0; }
+      code { background: #e8ecf0; padding: 2px 6px; border-radius: 3px; }
+    </style>
+    </head>
+    <body>
+      <h1>Hello from Kubernetes!</h1>
+      <div class="box">
+        <strong>TLS:</strong> Certificate issued by Vault PKI (demo-ca), managed by cert-manager.<br>
+        60-day duration &mdash; auto-renewed at 30 days remaining.
+      </div>
+      <div class="box">
+        <strong>Secrets:</strong> This app's secret comes from HashiCorp Vault via External Secrets Operator.<br>
+        Try: <code>kubectl get secret hello-message -n dev-hello -o yaml</code><br>
+        Then: <code>... -o jsonpath='{.data.message}' | base64 -d</code>
+      </div>
+      <div class="box">
+        <strong>Update live:</strong><br>
+        <code>vault kv put secret/kubernetes/hello/config message="Updated!"</code><br>
+        Wait 30s, then decode the secret again.
+      </div>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: ${NAMESPACE_PREFIX}-hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+        - name: hello
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: hello-html
